@@ -608,6 +608,59 @@ button {
   gap: 12px;
 }
 
+.record-day-group {
+  display: grid;
+  gap: 8px;
+}
+
+.record-day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 2px 0;
+}
+
+.record-day-title {
+  display: inline-flex;
+  align-items: baseline;
+  min-width: 0;
+  gap: 8px;
+}
+
+.record-day-title strong,
+.record-day-count {
+  font-weight: 850;
+}
+
+.record-day-title span,
+.record-day-count,
+.record-day-metrics {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.record-day-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding: 0 2px 2px;
+  font-weight: 750;
+}
+
+.records-load-more-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.records-load-more {
+  min-width: 112px;
+}
+
 .record-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;

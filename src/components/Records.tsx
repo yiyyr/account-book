@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   CalendarSearch,
   Pencil,
@@ -23,6 +23,15 @@ import type {
 
 type RecordKindFilter = "all" | "income" | "expense";
 type EditableTransaction = Transaction & { kind: "income" | "expense" };
+const RECORDS_PAGE_SIZE = 50;
+
+interface TransactionDateGroup {
+  dateKey: string;
+  weekdayLabel: string;
+  incomeCents: number;
+  expenseCents: number;
+  transactions: EditableTransaction[];
+}
 
 interface RecordsProps {
   settings: AppSettings;
@@ -46,10 +55,13 @@ export function Records({
   transactions
 }: RecordsProps) {
   const now = new Date();
+  const currentYear = String(now.getFullYear());
+  const currentMonth = String(now.getMonth() + 1).padStart(2, "0");
   const [kindFilter, setKindFilter] = useState<RecordKindFilter>("all");
-  const [yearFilter, setYearFilter] = useState(String(now.getFullYear()));
-  const [monthFilter, setMonthFilter] = useState("all");
+  const [yearFilter, setYearFilter] = useState(currentYear);
+  const [monthFilter, setMonthFilter] = useState(currentMonth);
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [visibleCount, setVisibleCount] = useState(RECORDS_PAGE_SIZE);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditFormState | null>(null);
   const [status, setStatus] = useState("");
@@ -73,9 +85,9 @@ export function Records({
         String(new Date(transaction.occurredAt).getFullYear())
       )
     );
-    years.add(String(now.getFullYear()));
+    years.add(currentYear);
     return Array.from(years).sort((left, right) => Number(right) - Number(left));
-  }, [editableTransactions, now]);
+  }, [currentYear, editableTransactions]);
 
   const categoryOptions = useMemo(
     () =>
@@ -109,8 +121,16 @@ export function Records({
     ]
   );
 
+  useEffect(() => {
+    setVisibleCount(RECORDS_PAGE_SIZE);
+  }, [categoryFilter, kindFilter, monthFilter, yearFilter]);
+
   const filteredIncomeCents = sumByKind(filteredTransactions, "income");
   const filteredExpenseCents = sumByKind(filteredTransactions, "expense");
+  const groupedTransactions = groupTransactionsByDate(filteredTransactions);
+  const visibleGroups = getVisibleGroups(groupedTransactions, visibleCount);
+  const displayedCount = countGroupedTransactions(visibleGroups);
+  const hasMoreTransactions = displayedCount < filteredTransactions.length;
   const editingTransaction =
     editingId === null
       ? undefined
@@ -383,61 +403,119 @@ export function Records({
           {filteredTransactions.length === 0 && (
             <p className="muted-line">暂无匹配记录</p>
           )}
-          {filteredTransactions.map((transaction) => {
-            const category = transaction.categoryId
-              ? categoryById.get(transaction.categoryId)
-              : undefined;
-            const envelope = transaction.fromEnvelopeId
-              ? envelopeById.get(transaction.fromEnvelopeId)
-              : undefined;
-            const signedAmount =
-              transaction.kind === "expense"
-                ? -transaction.amountCents
-                : transaction.amountCents;
+          {visibleGroups.map((group) => {
+            const hasIncome = group.incomeCents > 0;
+            const hasExpense = group.expenseCents > 0;
+            const netCents = group.incomeCents - group.expenseCents;
 
             return (
-              <article className="record-item" key={transaction.id}>
-                <div className="record-main">
-                  <span className="transaction-title">
-                    {category?.name ?? "未分类"}
+              <section className="record-day-group" key={group.dateKey}>
+                <header className="record-day-header">
+                  <div className="record-day-title">
+                    <strong>{group.dateKey}</strong>
+                    <span>{group.weekdayLabel}</span>
+                  </div>
+                  <span className="record-day-count">
+                    {group.transactions.length} 笔
                   </span>
-                  <span className="transaction-date">
-                    {transaction.occurredAt.slice(0, 10)} ·{" "}
-                    {transaction.kind === "income" ? "收入" : "支出"}
-                    {envelope ? ` · ${envelope.name}` : ""}
-                    {transaction.note ? ` · ${transaction.note}` : ""}
-                  </span>
+                </header>
+                <div className="record-day-metrics">
+                  {hasExpense && (
+                    <span>
+                      支出 {formatMoney(group.expenseCents, settings.currency)}
+                    </span>
+                  )}
+                  {hasIncome && (
+                    <span>
+                      收入 {formatMoney(group.incomeCents, settings.currency)}
+                    </span>
+                  )}
+                  {hasIncome && hasExpense && (
+                    <span
+                      className={
+                        netCents < 0 ? "amount-negative" : "amount-positive"
+                      }
+                    >
+                      {netCents > 0 ? "净流入" : netCents < 0 ? "净流出" : "净额"}{" "}
+                      {formatMoney(Math.abs(netCents), settings.currency)}
+                    </span>
+                  )}
                 </div>
-                <strong
-                  className={
+                {group.transactions.map((transaction) => {
+                  const category = transaction.categoryId
+                    ? categoryById.get(transaction.categoryId)
+                    : undefined;
+                  const envelope = transaction.fromEnvelopeId
+                    ? envelopeById.get(transaction.fromEnvelopeId)
+                    : undefined;
+                  const signedAmount =
                     transaction.kind === "expense"
-                      ? "amount-negative"
-                      : "amount-positive"
-                  }
-                >
-                  {formatSignedMoney(signedAmount, settings.currency)}
-                </strong>
-                <div className="record-actions">
-                  <button
-                    className="icon-only-button"
-                    type="button"
-                    title="编辑"
-                    onClick={() => startEdit(transaction)}
-                  >
-                    <Pencil size={17} aria-hidden="true" />
-                  </button>
-                  <button
-                    className="icon-only-button danger"
-                    type="button"
-                    title="删除"
-                    onClick={() => void handleDelete(transaction)}
-                  >
-                    <Trash2 size={17} aria-hidden="true" />
-                  </button>
-                </div>
-              </article>
+                      ? -transaction.amountCents
+                      : transaction.amountCents;
+
+                  return (
+                    <article className="record-item" key={transaction.id}>
+                      <div className="record-main">
+                        <span className="transaction-title">
+                          {category?.name ?? "未分类"}
+                        </span>
+                        <span className="transaction-date">
+                          {transaction.kind === "income" ? "收入" : "支出"}
+                          {envelope ? ` · ${envelope.name}` : ""}
+                          {transaction.note ? ` · ${transaction.note}` : ""}
+                        </span>
+                      </div>
+                      <strong
+                        className={
+                          transaction.kind === "expense"
+                            ? "amount-negative"
+                            : "amount-positive"
+                        }
+                      >
+                        {formatSignedMoney(signedAmount, settings.currency)}
+                      </strong>
+                      <div className="record-actions">
+                        <button
+                          className="icon-only-button"
+                          type="button"
+                          title="编辑"
+                          onClick={() => startEdit(transaction)}
+                        >
+                          <Pencil size={17} aria-hidden="true" />
+                        </button>
+                        <button
+                          className="icon-only-button danger"
+                          type="button"
+                          title="删除"
+                          onClick={() => void handleDelete(transaction)}
+                        >
+                          <Trash2 size={17} aria-hidden="true" />
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </section>
             );
           })}
+          {filteredTransactions.length > 0 && (
+            <div className="records-load-more-row">
+              <span className="muted-line">
+                已显示 {displayedCount} / {filteredTransactions.length} 条
+              </span>
+              {hasMoreTransactions && (
+                <button
+                  className="secondary-button records-load-more"
+                  type="button"
+                  onClick={() =>
+                    setVisibleCount((count) => count + RECORDS_PAGE_SIZE)
+                  }
+                >
+                  显示更多
+                </button>
+              )}
+            </div>
+          )}
         </div>
         {status && <p className="form-status">{status}</p>}
       </section>
@@ -458,4 +536,60 @@ function sumByKind(
   return transactions
     .filter((transaction) => transaction.kind === kind)
     .reduce((sum, transaction) => sum + transaction.amountCents, 0);
+}
+
+function groupTransactionsByDate(transactions: EditableTransaction[]) {
+  const groups = new Map<string, TransactionDateGroup>();
+
+  for (const transaction of transactions) {
+    const dateKey = transaction.occurredAt.slice(0, 10);
+    const group =
+      groups.get(dateKey) ??
+      {
+        dateKey,
+        weekdayLabel: getWeekdayLabel(dateKey),
+        incomeCents: 0,
+        expenseCents: 0,
+        transactions: []
+      };
+
+    if (transaction.kind === "income") {
+      group.incomeCents += transaction.amountCents;
+    } else {
+      group.expenseCents += transaction.amountCents;
+    }
+
+    group.transactions.push(transaction);
+    groups.set(dateKey, group);
+  }
+
+  return Array.from(groups.values());
+}
+
+function getVisibleGroups(
+  groups: TransactionDateGroup[],
+  minimumTransactionCount: number
+) {
+  const visibleGroups: TransactionDateGroup[] = [];
+  let transactionCount = 0;
+
+  for (const group of groups) {
+    if (transactionCount >= minimumTransactionCount) {
+      break;
+    }
+
+    visibleGroups.push(group);
+    transactionCount += group.transactions.length;
+  }
+
+  return visibleGroups;
+}
+
+function countGroupedTransactions(groups: TransactionDateGroup[]) {
+  return groups.reduce((sum, group) => sum + group.transactions.length, 0);
+}
+
+function getWeekdayLabel(dateKey: string) {
+  const weekdays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+  return weekdays[new Date(`${dateKey}T12:00:00`).getDay()];
 }
