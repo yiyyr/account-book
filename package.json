@@ -1,0 +1,45 @@
+{
+  "name": "account-book",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "description": "A mobile-first envelope budgeting PWA for personal bookkeeping.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "lint": "tsc -b --noEmit"
+  },
+  "dependencies": {
+    "chart.js": "^4.4.7",
+    "dexie": "^4.0.11",
+    "dexie-react-hooks": "^1.1.7",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-chartjs-2": "^5.2.0",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vite-plugin-pwa": "^0.21.1",
+    "vitest": "^2.1.8"
+  },
+  "keywords": [
+    "budget",
+    "bookkeeping",
+    "pwa",
+    "envelope-budget",
+    "indexeddb"
+  ]
+}

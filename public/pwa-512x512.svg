@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Account Book">
+  <rect width="512" height="512" rx="112" fill="#0f766e"/>
+  <path d="M144 130h224a34 34 0 0 1 34 34v196a40 40 0 0 1-40 40H144a34 34 0 0 1-34-34V164a34 34 0 0 1 34-34z" fill="#f7f8f3"/>
+  <path d="M182 207h150M182 270h112M182 333h150" stroke="#0f766e" stroke-width="28" stroke-linecap="round"/>
+  <circle cx="352" cy="287" r="58" fill="#f59e0b"/>
+</svg>
