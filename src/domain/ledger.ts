@@ -303,6 +303,49 @@ export function sumByKind(
     .reduce((sum, transaction) => sum + transaction.amountCents, 0);
 }
 
+export function calculateEnvelopeMonthActivity(
+  transactions: Transaction[],
+  monthKey: string
+) {
+  const allocatedCents: Record<string, number> = {};
+  const expenseCents: Record<string, number> = {};
+  const transferInCents: Record<string, number> = {};
+  const transferOutCents: Record<string, number> = {};
+
+  for (const transaction of transactions) {
+    if (getMonthKey(transaction.occurredAt) !== monthKey) {
+      continue;
+    }
+
+    if (transaction.kind === "allocation" && transaction.toEnvelopeId) {
+      allocatedCents[transaction.toEnvelopeId] =
+        (allocatedCents[transaction.toEnvelopeId] ?? 0) +
+        transaction.amountCents;
+    }
+
+    if (transaction.kind === "expense" && transaction.fromEnvelopeId) {
+      expenseCents[transaction.fromEnvelopeId] =
+        (expenseCents[transaction.fromEnvelopeId] ?? 0) +
+        transaction.amountCents;
+    }
+
+    if (transaction.kind === "transfer") {
+      if (transaction.toEnvelopeId) {
+        transferInCents[transaction.toEnvelopeId] =
+          (transferInCents[transaction.toEnvelopeId] ?? 0) +
+          transaction.amountCents;
+      }
+      if (transaction.fromEnvelopeId) {
+        transferOutCents[transaction.fromEnvelopeId] =
+          (transferOutCents[transaction.fromEnvelopeId] ?? 0) +
+          transaction.amountCents;
+      }
+    }
+  }
+
+  return { allocatedCents, expenseCents, transferInCents, transferOutCents };
+}
+
 export function getMonthRange(date: Date) {
   const start = new Date(date.getFullYear(), date.getMonth(), 1);
   const end = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59);

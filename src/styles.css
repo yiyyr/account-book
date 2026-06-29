@@ -203,6 +203,46 @@ button {
   min-height: 62px;
 }
 
+.allocation-main-panel {
+  grid-column: 1 / -1;
+}
+
+.allocation-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 14px;
+  overflow: hidden;
+  background: var(--surface-alt);
+  border: 1px solid #cfddd3;
+  border-radius: 8px;
+}
+
+.allocation-overview div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.allocation-overview div + div {
+  border-left: 1px solid var(--border);
+}
+
+.allocation-overview span,
+.envelope-activity span,
+.allocation-reference span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.allocation-overview strong,
+.envelope-activity strong,
+.allocation-reference strong {
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+
 .envelope-list,
 .transaction-list,
 .allocation-list {
@@ -226,6 +266,37 @@ button {
 .envelope-card-header strong {
   overflow-wrap: anywhere;
   text-align: right;
+}
+
+.envelope-activity {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.envelope-activity span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.envelope-activity strong {
+  font-size: 0.88rem;
+}
+
+.envelope-adjustment {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.envelope-adjustment span {
+  color: var(--muted);
 }
 
 .color-dot,
@@ -404,10 +475,18 @@ button {
   font-weight: 800;
 }
 
+.allocation-list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .allocation-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(112px, 34%);
-  gap: 10px;
+  grid-template-columns:
+    minmax(130px, 0.7fr) minmax(280px, 1.6fr) minmax(112px, 0.5fr);
+  gap: 12px;
   align-items: center;
 }
 
@@ -421,6 +500,23 @@ button {
 
 .allocation-name i {
   flex: 0 0 auto;
+}
+
+.allocation-reference {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.allocation-reference span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.allocation-reference strong {
+  font-size: 0.84rem;
 }
 
 .allocation-row input {

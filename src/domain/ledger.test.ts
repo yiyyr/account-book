@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  calculateEnvelopeMonthActivity,
   calculateSnapshot,
   getDefaultCategories,
   getDefaultEnvelopes,
@@ -54,6 +55,34 @@ describe("calculateSnapshot", () => {
     expect(snapshot.envelopeBalances.env_necessary).toBe(20_000);
     expect(snapshot.envelopeBalances.env_travel).toBe(10_000);
     expect(snapshot.totalBalanceCents).toBe(80_000);
+  });
+});
+
+describe("calculateEnvelopeMonthActivity", () => {
+  it("summarizes allocations and expenses for one month by envelope", () => {
+    const activity = calculateEnvelopeMonthActivity(
+      [
+        makeTransaction("allocation", 40_000, "2026-05-01", {
+          toEnvelopeId: "env_necessary"
+        }),
+        makeTransaction("expense", 12_500, "2026-05-02", {
+          fromEnvelopeId: "env_necessary"
+        }),
+        makeTransaction("transfer", 3_000, "2026-05-03", {
+          fromEnvelopeId: "env_necessary",
+          toEnvelopeId: "env_travel"
+        }),
+        makeTransaction("allocation", 10_000, "2026-06-01", {
+          toEnvelopeId: "env_necessary"
+        })
+      ],
+      "2026-05"
+    );
+
+    expect(activity.allocatedCents.env_necessary).toBe(40_000);
+    expect(activity.expenseCents.env_necessary).toBe(12_500);
+    expect(activity.transferOutCents.env_necessary).toBe(3_000);
+    expect(activity.transferInCents.env_travel).toBe(3_000);
   });
 });
 

@@ -69,6 +69,7 @@ export default function App() {
           <Allocation
             settings={settings}
             envelopes={activeEnvelopes}
+            transactions={transactions}
             snapshot={snapshot}
           />
         )}

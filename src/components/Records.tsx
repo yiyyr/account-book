@@ -61,6 +61,7 @@ export function Records({
   const [yearFilter, setYearFilter] = useState(currentYear);
   const [monthFilter, setMonthFilter] = useState(currentMonth);
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [envelopeFilter, setEnvelopeFilter] = useState("all");
   const [visibleCount, setVisibleCount] = useState(RECORDS_PAGE_SIZE);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditFormState | null>(null);
@@ -109,12 +110,23 @@ export function Records({
           kindFilter === "all" || transaction.kind === kindFilter;
         const categoryMatches =
           categoryFilter === "all" || transaction.categoryId === categoryFilter;
+        const envelopeMatches =
+          envelopeFilter === "all" ||
+          (transaction.kind === "expense" &&
+            transaction.fromEnvelopeId === envelopeFilter);
 
-        return yearMatches && monthMatches && kindMatches && categoryMatches;
+        return (
+          yearMatches &&
+          monthMatches &&
+          kindMatches &&
+          categoryMatches &&
+          envelopeMatches
+        );
       }),
     [
       categoryFilter,
       editableTransactions,
+      envelopeFilter,
       kindFilter,
       monthFilter,
       yearFilter
@@ -123,7 +135,7 @@ export function Records({
 
   useEffect(() => {
     setVisibleCount(RECORDS_PAGE_SIZE);
-  }, [categoryFilter, kindFilter, monthFilter, yearFilter]);
+  }, [categoryFilter, envelopeFilter, kindFilter, monthFilter, yearFilter]);
 
   const filteredIncomeCents = sumByKind(filteredTransactions, "income");
   const filteredExpenseCents = sumByKind(filteredTransactions, "expense");
@@ -139,6 +151,9 @@ export function Records({
   function updateKindFilter(nextKind: RecordKindFilter) {
     setKindFilter(nextKind);
     setCategoryFilter("all");
+    if (nextKind === "income") {
+      setEnvelopeFilter("all");
+    }
   }
 
   function startEdit(transaction: EditableTransaction) {
@@ -297,6 +312,21 @@ export function Records({
               {categoryOptions.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>支出信封</span>
+            <select
+              value={envelopeFilter}
+              disabled={kindFilter === "income"}
+              onChange={(event) => setEnvelopeFilter(event.target.value)}
+            >
+              <option value="all">全部信封</option>
+              {envelopes.map((envelope) => (
+                <option key={envelope.id} value={envelope.id}>
+                  {envelope.name}{envelope.archived ? "（已归档）" : ""}
                 </option>
               ))}
             </select>

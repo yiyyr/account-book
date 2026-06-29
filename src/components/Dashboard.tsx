@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { ArrowDownCircle, ArrowUpCircle, Plus, WalletCards } from "lucide-react";
 import type {
   AppSettings,
@@ -6,6 +7,10 @@ import type {
   LedgerSnapshot,
   Transaction
 } from "../domain/types";
+import {
+  calculateEnvelopeMonthActivity,
+  currentDateInputValue
+} from "../domain/ledger";
 import { formatMoney, formatSignedMoney } from "../domain/money";
 
 interface DashboardProps {
@@ -27,11 +32,10 @@ export function Dashboard({
 }: DashboardProps) {
   const categoryById = new Map(categories.map((category) => [category.id, category]));
   const recentTransactions = transactions.slice(0, 6);
-  const maxEnvelopeBalance = Math.max(
-    1,
-    ...envelopes.map((envelope) =>
-      Math.max(0, snapshot.envelopeBalances[envelope.id] ?? 0)
-    )
+  const currentMonth = currentDateInputValue().slice(0, 7);
+  const currentMonthActivity = useMemo(
+    () => calculateEnvelopeMonthActivity(transactions, currentMonth),
+    [currentMonth, transactions]
   );
 
   return (
@@ -75,10 +79,19 @@ export function Dashboard({
         <div className="envelope-list">
           {envelopes.map((envelope) => {
             const balance = snapshot.envelopeBalances[envelope.id] ?? 0;
-            const width = `${Math.max(
-              4,
-              Math.min(100, (Math.max(0, balance) / maxEnvelopeBalance) * 100)
-            )}%`;
+            const allocatedCents =
+              currentMonthActivity.allocatedCents[envelope.id] ?? 0;
+            const expenseCents =
+              currentMonthActivity.expenseCents[envelope.id] ?? 0;
+            const transferInCents =
+              currentMonthActivity.transferInCents[envelope.id] ?? 0;
+            const transferOutCents =
+              currentMonthActivity.transferOutCents[envelope.id] ?? 0;
+            const adjustmentCents = transferInCents - transferOutCents;
+            const hasAdjustment = transferInCents > 0 || transferOutCents > 0;
+            const consumption =
+              allocatedCents > 0 ? (expenseCents / allocatedCents) * 100 : null;
+            const width = `${Math.min(100, consumption ?? 0)}%`;
 
             return (
               <article className="envelope-card" key={envelope.id}>
@@ -87,6 +100,38 @@ export function Dashboard({
                   <span>{envelope.name}</span>
                   <strong>{formatMoney(balance, settings.currency)}</strong>
                 </div>
+                <div className="envelope-activity">
+                  <span>
+                    本月分配
+                    <strong>{formatMoney(allocatedCents, settings.currency)}</strong>
+                  </span>
+                  <span>
+                    本月支出
+                    <strong>{formatMoney(expenseCents, settings.currency)}</strong>
+                  </span>
+                  <span>
+                    分配消耗
+                    <strong>
+                      {consumption === null ? "--" : `${consumption.toFixed(1)}%`}
+                    </strong>
+                  </span>
+                </div>
+                {hasAdjustment && (
+                  <div className="envelope-adjustment">
+                    <span>本月调整</span>
+                    <strong
+                      className={
+                        adjustmentCents > 0
+                          ? "amount-positive"
+                          : adjustmentCents < 0
+                            ? "amount-negative"
+                            : undefined
+                      }
+                    >
+                      {formatSignedMoney(adjustmentCents, settings.currency)}
+                    </strong>
+                  </div>
+                )}
                 <div className="balance-track" aria-hidden="true">
                   <span
                     className="balance-fill"

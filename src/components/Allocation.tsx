@@ -1,13 +1,23 @@
 import { FormEvent, useMemo, useState } from "react";
-import { ArrowRightLeft, Layers3, Plus } from "lucide-react";
+import { ArrowRightLeft, Copy, Layers3, Plus } from "lucide-react";
 import { ledgerRepository } from "../data/ledgerRepository";
-import { currentDateInputValue } from "../domain/ledger";
-import { formatMoney, parseMoneyToCents } from "../domain/money";
-import type { AppSettings, EnvelopeAccount, LedgerSnapshot } from "../domain/types";
+import {
+  calculateEnvelopeMonthActivity,
+  currentDateInputValue,
+  getLastMonthKeys
+} from "../domain/ledger";
+import { centsToInput, formatMoney, parseMoneyToCents } from "../domain/money";
+import type {
+  AppSettings,
+  EnvelopeAccount,
+  LedgerSnapshot,
+  Transaction
+} from "../domain/types";
 
 interface AllocationProps {
   settings: AppSettings;
   envelopes: EnvelopeAccount[];
+  transactions: Transaction[];
   snapshot: LedgerSnapshot;
 }
 
@@ -22,7 +32,12 @@ const colorOptions = [
   "#475569"
 ];
 
-export function Allocation({ settings, envelopes, snapshot }: AllocationProps) {
+export function Allocation({
+  settings,
+  envelopes,
+  transactions,
+  snapshot
+}: AllocationProps) {
   const [allocationDate, setAllocationDate] = useState(currentDateInputValue());
   const [allocationAmounts, setAllocationAmounts] = useState<Record<string, string>>({});
   const [newEnvelopeName, setNewEnvelopeName] = useState("");
@@ -32,14 +47,70 @@ export function Allocation({ settings, envelopes, snapshot }: AllocationProps) {
   const [transferAmount, setTransferAmount] = useState("");
   const [status, setStatus] = useState("");
 
+  const selectedMonth = (allocationDate || currentDateInputValue()).slice(0, 7);
+  const previousMonth = getLastMonthKeys(
+    2,
+    new Date(`${selectedMonth}-01T12:00:00`)
+  )[0];
+  const selectedMonthActivity = useMemo(
+    () => calculateEnvelopeMonthActivity(transactions, selectedMonth),
+    [selectedMonth, transactions]
+  );
+  const previousMonthActivity = useMemo(
+    () => calculateEnvelopeMonthActivity(transactions, previousMonth),
+    [previousMonth, transactions]
+  );
+
   const envelopeOptions = useMemo(
     () =>
-      envelopes.map((envelope) => ({
-        ...envelope,
-        balance: snapshot.envelopeBalances[envelope.id] ?? 0
-      })),
-    [envelopes, snapshot.envelopeBalances]
+      envelopes.map((envelope) => {
+        const previousAllocatedCents =
+          previousMonthActivity.allocatedCents[envelope.id] ?? 0;
+        const currentAllocatedCents =
+          selectedMonthActivity.allocatedCents[envelope.id] ?? 0;
+
+        return {
+          ...envelope,
+          balance: snapshot.envelopeBalances[envelope.id] ?? 0,
+          previousAllocatedCents,
+          previousExpenseCents:
+            previousMonthActivity.expenseCents[envelope.id] ?? 0,
+          currentAllocatedCents,
+          suggestedCents: Math.max(
+            0,
+            previousAllocatedCents - currentAllocatedCents
+          )
+        };
+      }),
+    [
+      envelopes,
+      previousMonthActivity,
+      selectedMonthActivity,
+      snapshot.envelopeBalances
+    ]
   );
+  const allocationTotalCents = Object.values(allocationAmounts).reduce(
+    (sum, value) => sum + parseDraftMoneyToCents(value),
+    0
+  );
+  const remainingCents = snapshot.unallocatedCents - allocationTotalCents;
+
+  function handleUseLastMonth() {
+    const suggestions = envelopeOptions
+      .filter((envelope) => envelope.suggestedCents > 0)
+      .map((envelope) => [
+        envelope.id,
+        centsToInput(envelope.suggestedCents)
+      ]);
+
+    if (suggestions.length === 0) {
+      setStatus("上月暂无可沿用的分配");
+      return;
+    }
+
+    setAllocationAmounts(Object.fromEntries(suggestions));
+    setStatus("已填入上月分配建议");
+  }
 
   async function handleAllocation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -130,32 +201,79 @@ export function Allocation({ settings, envelopes, snapshot }: AllocationProps) {
 
   return (
     <div className="page-grid">
-      <section className="panel">
+      <section className="panel allocation-main-panel">
         <div className="section-heading">
           <h2>收入分配</h2>
           <Layers3 size={22} aria-hidden="true" />
         </div>
-        <div className="unallocated-row prominent">
-          <span>未分配资金</span>
-          <strong>
-            {formatMoney(snapshot.unallocatedCents, settings.currency)}
-          </strong>
+        <div className="allocation-overview">
+          <div>
+            <span>可分配</span>
+            <strong>
+              {formatMoney(snapshot.unallocatedCents, settings.currency)}
+            </strong>
+          </div>
+          <div>
+            <span>本次已安排</span>
+            <strong>{formatMoney(allocationTotalCents, settings.currency)}</strong>
+          </div>
+          <div>
+            <span>分配后剩余</span>
+            <strong className={remainingCents < 0 ? "amount-negative" : ""}>
+              {formatMoney(remainingCents, settings.currency)}
+            </strong>
+          </div>
         </div>
         <form className="stacked-form" onSubmit={handleAllocation}>
-          <label className="field">
+          <label className="field compact-field">
             <span>日期</span>
             <input
               type="date"
+              required
               value={allocationDate}
               onChange={(event) => setAllocationDate(event.target.value)}
             />
           </label>
+          <div className="allocation-list-heading">
+            <strong>按信封分配</strong>
+            <button
+              className="icon-text-button"
+              type="button"
+              onClick={handleUseLastMonth}
+            >
+              <Copy size={17} aria-hidden="true" />
+              沿用上月
+            </button>
+          </div>
           <div className="allocation-list">
             {envelopeOptions.map((envelope) => (
               <label className="allocation-row" key={envelope.id}>
                 <span className="allocation-name">
                   <i style={{ background: envelope.color }} />
                   {envelope.name}
+                </span>
+                <span className="allocation-reference">
+                  <span>
+                    上月分配
+                    <strong>
+                      {formatMoney(
+                        envelope.previousAllocatedCents,
+                        settings.currency
+                      )}
+                    </strong>
+                  </span>
+                  <span>
+                    上月支出
+                    <strong>
+                      {formatMoney(envelope.previousExpenseCents, settings.currency)}
+                    </strong>
+                  </span>
+                  <span>
+                    本月已分配
+                    <strong>
+                      {formatMoney(envelope.currentAllocatedCents, settings.currency)}
+                    </strong>
+                  </span>
                 </span>
                 <input
                   inputMode="decimal"
@@ -264,4 +382,13 @@ export function Allocation({ settings, envelopes, snapshot }: AllocationProps) {
       </section>
     </div>
   );
+}
+
+function parseDraftMoneyToCents(value: string) {
+  const normalized = value.trim().replace(/,/g, "");
+  if (!/^\d+(\.\d{0,2})?$/.test(normalized)) {
+    return 0;
+  }
+
+  return Math.round(Number(normalized) * 100);
 }

@@ -84,8 +84,16 @@ export function Stats({ settings, envelopes, categories, transactions }: StatsPr
     };
   }, [transactions]);
 
+  const monthlyExpenseTransactions = monthlyTransactions.filter(
+    (transaction) => transaction.kind === "expense"
+  );
+  const totalExpenseCents = monthlyExpenseTransactions.reduce(
+    (sum, transaction) => sum + transaction.amountCents,
+    0
+  );
+
   const categoryRows = aggregateBy(
-    monthlyTransactions.filter((transaction) => transaction.kind === "expense"),
+    monthlyExpenseTransactions,
     (transaction) => transaction.categoryId ?? "unknown"
   )
     .map(([categoryId, amountCents]) => ({
@@ -96,7 +104,7 @@ export function Stats({ settings, envelopes, categories, transactions }: StatsPr
     .sort((left, right) => right.amountCents - left.amountCents);
 
   const envelopeRows = aggregateBy(
-    monthlyTransactions.filter((transaction) => transaction.kind === "expense"),
+    monthlyExpenseTransactions,
     (transaction) => transaction.fromEnvelopeId ?? "unknown"
   )
     .map(([envelopeId, amountCents]) => ({
@@ -107,7 +115,10 @@ export function Stats({ settings, envelopes, categories, transactions }: StatsPr
     .sort((left, right) => right.amountCents - left.amountCents);
 
   const categoryChartData = {
-    labels: categoryRows.map((row) => row.label),
+    labels: categoryRows.map(
+      (row) =>
+        `${row.label} · ${formatPercentage(row.amountCents, totalExpenseCents)}`
+    ),
     datasets: [
       {
         data: categoryRows.map((row) => row.amountCents / 100),
@@ -118,7 +129,10 @@ export function Stats({ settings, envelopes, categories, transactions }: StatsPr
   };
 
   const envelopeChartData = {
-    labels: envelopeRows.map((row) => row.label),
+    labels: envelopeRows.map(
+      (row) =>
+        `${row.label} · ${formatPercentage(row.amountCents, totalExpenseCents)}`
+    ),
     datasets: [
       {
         label: "支出",
@@ -171,7 +185,23 @@ export function Stats({ settings, envelopes, categories, transactions }: StatsPr
             options={{
               responsive: true,
               maintainAspectRatio: false,
-              plugins: { legend: { position: "bottom" } }
+              plugins: {
+                legend: { position: "bottom" },
+                tooltip: {
+                  callbacks: {
+                    title: (items) => {
+                      const item = items[0];
+                      return item ? categoryRows[item.dataIndex]?.label ?? "" : "";
+                    },
+                    label: (item) => {
+                      const row = categoryRows[item.dataIndex];
+                      return row
+                        ? `${formatMoney(row.amountCents, settings.currency)} · ${formatPercentage(row.amountCents, totalExpenseCents)}`
+                        : "";
+                    }
+                  }
+                }
+              }
             }}
           />
         ) : (
@@ -194,8 +224,16 @@ export function Stats({ settings, envelopes, categories, transactions }: StatsPr
                 legend: { display: false },
                 tooltip: {
                   callbacks: {
-                    label: (item) =>
-                      formatMoney(Number(item.raw) * 100, settings.currency)
+                    title: (items) => {
+                      const item = items[0];
+                      return item ? envelopeRows[item.dataIndex]?.label ?? "" : "";
+                    },
+                    label: (item) => {
+                      const row = envelopeRows[item.dataIndex];
+                      return row
+                        ? `${formatMoney(row.amountCents, settings.currency)} · ${formatPercentage(row.amountCents, totalExpenseCents)}`
+                        : "";
+                    }
                   }
                 }
               }
@@ -226,4 +264,10 @@ function sumTransactions(transactions: Transaction[]) {
     transactions.reduce((sum, transaction) => sum + transaction.amountCents, 0) /
     100
   );
+}
+
+function formatPercentage(amountCents: number, totalCents: number) {
+  return totalCents === 0
+    ? "0.0%"
+    : `${((amountCents / totalCents) * 100).toFixed(1)}%`;
 }
